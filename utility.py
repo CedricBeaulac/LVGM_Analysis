@@ -6,6 +6,7 @@ Created on 22/01/21
 Clean place to drop function for LVS experiments
 """
 
+import torch
 ##################################  
 # GMM Generator
 ##################################

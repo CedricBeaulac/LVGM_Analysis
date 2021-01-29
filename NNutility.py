@@ -2,7 +2,6 @@
 """
 Created on 22/01/21
 
-
 @author: Cedric Beaulac
 Clean place to drop NN Related stuff for LVS experiments
 """
@@ -18,115 +17,75 @@ import numpy as np
 from numpy import *
 import pandas as pd
 
-def train(args, model, device, dataset, optimizer, epoch,yindex):
+
+####################################
+# Defining our VAE
+####################################
+
+class PVAE(nn.Module):
+    def __init__(self, x_dim=10,h_dim=400,z_dim=20):
+        super(PVAE, self).__init__()
+
+        self.fc1 = nn.Linear(x_dim, h_dim)
+        self.fc21 = nn.Linear(h_dim, z_dim)
+        self.fc22 = nn.Linear(h_dim, z_dim)
+        self.fc3 = nn.Linear(z_dim, h_dim)
+        self.fc41 = nn.Linear(h_dim, x_dim)
+        self.fc42 = nn.Linear(h_dim, x_dim)
+
+    def encode(self, x):
+        h1 = F.relu(self.fc1(x))
+        return self.fc21(h1), self.fc22(h1)
+
+    def reparameterize(self, mu, logvar):
+        std = torch.exp(0.5*logvar)
+        eps = torch.randn_like(std)
+        return mu + eps*std
+
+    def decode(self, z):
+        h3 = F.relu(self.fc3(z))
+        return self.fc41(h3),self.fc42(h3)
+
+    def forward(self, x):
+        mu, logvar = self.encode(x)
+        z = self.reparameterize(mu, logvar)
+        mux, logvarx = self.decode(z)
+        return mux,logvarx, mu, logvar
+    
+    
+    
+####################################
+# Define the training procedure
+####################################
+# Reconstruction + KL divergence losses summed over all elements and batch
+def ploss_function(mux,logvarx, x, muz, logvarz,beta,device):
+    
+    sigmax = logvarx.mul(0.5).exp_()
+    #sigmax = torch.ones(logvarx.shape)
+    #sigmax = sigmax.to(device)
+    pxn = torch.distributions.normal.Normal(mux, sigmax)
+    logpx = torch.sum(pxn.log_prob(x))
+
+
+    KLD = 0.5 * torch.sum(1 + logvarz - muz.pow(2) - logvarz.exp())
+
+
+    return logpx + beta*KLD
+
+def ptrain(args, model, device, data, optimizer, epoch):
     model.train()
-    data,labels=dataset
     perm = np.random.permutation(data.shape[0])
     Alldata = torch.tensor(data[perm, :])
-    Alltarget = torch.tensor(labels[perm,yindex])
+    train_loss = 0
     for i in range(0, args.Number_batch):
-        data, target = Alldata[(i * args.batch_size):((i + 1) * args.batch_size),:].to(device), Alltarget[(i * args.batch_size):((i + 1) * args.batch_size)].double().to(device)
-        data = data.view(args.batch_size,1,32,32).type(torch.cuda.FloatTensor)
-        target = target.type(torch.cuda.LongTensor)
+        datas = Alldata[(i * args.batch_size):((i + 1) * args.batch_size),:].to(device)
         optimizer.zero_grad()
-        output = model(data)
-        loss = F.nll_loss(output, target)
+        mux,logvarx, mu, logvar = model(datas)
+        loss = -ploss_function(mux,logvarx, datas, mu, logvar,args.beta,device)
+        train_loss += loss.item()
         loss.backward()
         optimizer.step()
 
-
-def test(args, model, device, dataset,epoch,yindex):
-    model.eval()
-    test_loss = 0
-    correct = 0
-    data,labels=dataset
-    data = torch.tensor(data)
-    target = torch.tensor(labels[:,yindex])
-    with torch.no_grad():
-            data, target = data.to(device), target.to(device)
-            data = data.view(shape(data)[0],1,32,32).type(torch.cuda.FloatTensor)
-            target = target.type(torch.cuda.LongTensor)
-            output = model(data)
-            test_loss += F.nll_loss(output, target, reduction='sum').item()  # sum up batch loss
-            pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
-            correct += pred.eq(target.view_as(pred)).sum().item()
-
-    test_loss /= data.shape[0]
-
-    #print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%) on epoch {} \n'.format(
-        #test_loss, correct, shape(data)[0],100. * correct / shape(data)[0],epoch))
-
-
-def test_accuracy(args, model, device, dataset,yindex):
-    correct = 0
-    data,labels=dataset
-    data = torch.tensor(data)
-    target = torch.tensor(labels[:,yindex])
-    with torch.no_grad():
-        data, target = data.to(device), target.to(device)
-        data = data.view(shape(data)[0],1,32,32).type(torch.cuda.FloatTensor)
-        target = target.type(torch.cuda.LongTensor)
-        output = model(data)
-        pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
-        correct += pred.eq(target.view_as(pred)).sum().item()
-        acc = correct/data.shape[0]
-            
-    return acc
-
-def test_MSE(args, model, device, dataset,yindex):
-    data,labels=dataset
-    data = torch.tensor(data)
-    target = torch.tensor(labels[:,yindex])
-    with torch.no_grad():
-        data, target = data.to(device), target.to(device)
-        data = data.view(shape(data)[0],1,32,32).type(torch.cuda.FloatTensor)
-        target = target.type(torch.cuda.LongTensor)
-        output = model(data)
-        MSE = nn.MSELoss(target,output)
-            
-    return MSEdef test_MSE(args, model, device, dataset,yindex):
-    data,labels=dataset
-    data = torch.tensor(data)
-    target = torch.tensor(labels[:,yindex])
-    with torch.no_grad():
-        data, target = data.to(device), target.to(device)
-        data = data.view(shape(data)[0],1,32,32).type(torch.cuda.FloatTensor)
-        target = target.type(torch.cuda.LongTensor)
-        output = model(data)
-        MSE = nn.MSELoss(target,output)
-            
-    return MSE
-
-####################################
-# Defining our NN
-####################################
-# NN For padded data (32 x 32)
-####################################
-    
-class VAE(nn.Module):
-    def __init__(self):
-        super(Net28_2k, self).__init__()
-        self.conv1 = nn.Conv2d(1, 32, 3, 1)
-        self.conv2 = nn.Conv2d(32, 64, 3, 1)
-        self.dropout1 = nn.Dropout2d(0.25)
-        self.dropout2 = nn.Dropout2d(0.5)
-        self.fc1 = nn.Linear(9216, 128)
-        self.fc2 = nn.Linear(128, ny)
-
-    def forward(self, x):
-        x = self.conv1(x)
-        x = F.relu(x)
-        x = self.conv2(x)
-        x = F.relu(x)
-        x = F.max_pool2d(x, 2)
-        x = self.dropout1(x)
-        x = torch.flatten(x, 1)
-        x = self.fc1(x)
-        x = F.relu(x)
-        x = self.dropout2(x)
-        x = self.fc2(x)
-        output = F.log_softmax(x, dim=1)
-        return output   
-    
-
-    
+    train_loss /= data.shape[0]         
+    print('====> Epoch: {} Average loss: {:.4f}'.format(
+          epoch, train_loss ))
