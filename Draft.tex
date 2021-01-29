@@ -1,0 +1,156 @@
+\documentclass{article}
+%\usepackage[T1]{fontenc}
+%\usepackage[utf8]{inputenc}
+\usepackage{enumerate}
+\usepackage{multirow}
+\usepackage[bottom,flushmargin,hang,multiple]{footmisc}
+\usepackage{etoolbox}
+\makeatletter
+\patchcmd\maketitle{\hb@xt@1.8em}{\hbox}{}{}
+\makeatother
+\patchcmd{\maketitle}{\@fnsymbol}{\@arabic}{}{}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage[margin=1.5in]{geometry}
+\usepackage{float}
+\usepackage{comment}
+\usepackage{pgf}
+\linespread{1.5}
+
+\usepackage{tikz}
+\usepackage{subcaption}
+
+\usepackage[T1]{fontenc}
+\usepackage[sfdefault,scaled=.95,light]{FiraSans}
+\usepackage{newtxsf}
+
+%\usepackage{url}
+%\usepackage[square,sort,comma,numbers]{natbib}
+
+\parindent=0pt
+\usepackage{etoolbox}
+\AtBeginEnvironment{quote}{\small}
+
+\newcommand{\Vx}{\textbf{Var}_x}
+\newcommand{\Ex}{\textbf{E}_x}
+\newcommand{\Vz}{\textbf{Var}_z}
+\newcommand{\Ez}{\textbf{E}_z}
+
+% \renewcommand{\familydefault}{lmodern}
+\begin{document}
+
+
+\title{Moment matching in latent variable model}
+
+%\subtitle{Poste de professeure, professeur en statstique et science des données}
+
+%\titlerunning{Short form of title}        % if too long for running head
+
+\author{C\'edric Beaulac}
+
+
+\date{\today}
+% The correct dates will be entered by the editor
+
+\maketitle
+
+
+\section{Intro}
+
+\section{Probability identities}
+
+The idea is to build two different estimators of the same value. One uses observed data and the other uses the proposed generative model. 
+
+\bigskip
+
+The Law of Total Variance :
+
+
+\begin{align}
+\Vx(X) = \Ez[\Vx(X|Z)] + \Vz[\Ex(X|Z)]
+\end{align}
+
+Notice the second term is equal to :
+
+\begin{align}
+\Vz[\Ex(X|Z)] &= \Ez[\Ex(X|Z)^2] - (\Ez[(\Ex(X|Z)])^2 \\
+&= \Ez[\Ex(X|Z)^2] - (\Ex[X])^2
+\end{align}
+
+Now we can combine and re-organize both equations :
+
+\begin{align}
+\Vx(X)+ (\Ex[X])^2 = \Ez[\Vx(X|Z)] + \Ez[\Ex(X|Z)^2]
+\label{rhslhs}
+\end{align}
+
+We have re-organized both term in this particular way for one reason, the left hand side of equation \ref{rhslhs} is independent of the latent variables and of the choice of model while the right hand side contains information about both components of the generative model. Additionally, the left hand side is actually $\Ex[X^2]$, the second moment of $X$ and thus our work here consist of comparing two different estimator of $\Ex[X^2]$. The left hand side can be estimated using the observed data:  
+
+\begin{align}
+\Ex[X^2] = \Vx(X)+ (\Ex[X])^2 \approx \frac{\sum_{i=1}^n(X_i-\bar{X})^T(X_i-\bar{X})}{n-1} + \bar{X}^T\bar{X} = \frac{\sum_{i=1}^n X_i^TX_i}{n-1}
+\label{lhs}
+\end{align}
+
+We call the LHS the data estimate (DE). The right and side of equation \ref{rhslhs} can be estimated using every components of the proposed generative model; we estimate it via a Monte Carlo sample of the prior $p_\theta(z)$ and both $\Vx(X|Z)$ and $\Ex(X|Z)$ which completely defined $p_\theta(x|z)$ contribute to this term:
+
+\begin{align}
+\Ez[\Vx(X|Z) + \Ex(X|Z)^2] &= \int_z (\Vx(X|Z=z)+\Ex(X|Z=z)^2)p(z) dz \\ 
+&\approx \frac{1}{m} \sum_{i=1}^m ( \text{diag}(\text{MLP}_2(z_i)) + \text{MLP}_1(z_i)^T\text{MLP}_1(z_i))
+\label{rhs}
+\end{align}
+
+where $z_i \sim p_\theta(z)$, MLP$_1$ is the multilayer perceptron that return $\Ex(X|Z)$ and MLP$_2$ is the multilayer perceptron that return $\Vx(X|Z)$. This is the forward model estimates (FME). 
+
+\bigskip
+
+The estimates from equation \ref{lhs} should be similar to those from equation \ref{rhs}. Right now, we take the element-wise ratio of both these estimates and if the propose generative models does capture well the second moment of $X$ we expect elements of this matrix to be close to one.
+
+\bigskip
+
+Based on simulation we observe that the generative model tends to underestimate the second moment.
+
+\bigskip
+
+Know that we can do something similar for the first moment :
+
+\begin{align}
+\Ex[X] = \Ez[\Ex(X|Z)] 
+\label{rhs}
+\end{align}
+
+where we can estimate the left-hand side with $\bar{x}$ and the right-hand side with $\frac{1}{m} \sum_{i=1}^m \text{MLP}_1(z_i)$ where $z_i \sim p_\theta(z)$. However, based on our previous experiment we do not believe capturing the first moment is an issue vor VAE at the current moment and the RHS estimate only account for a subset of the estimated parameters (it does not include the parameters of MLP$_2$). 
+
+\bigskip
+
+The first objective is to use such strategies as diagnostic tools to evaluate the fit of latent variable model. A follow-up project is to use those as part of the optimization procedure. 
+
+\subsection{Moment matching for diagnostic}
+
+For latent variable with a define forward mechanism, such as pPCA, GMM, HMM and VAE we can assess the ability of the forward model to capture the moment of the observation by comparing the DE with the FME.  
+
+\pagebreak
+\bibliographystyle{plain}
+\bibliography{mybibfile}
+\bigskip
+
+
+\end{document}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
