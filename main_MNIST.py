@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-Created on 22/01/21
+Created on 30/01/21
 
 @author: Cedric Beaulac 
 
-LVM-MEGA
+LVM-MEGA : Test on MNIST data 
 """
 
 
@@ -168,7 +168,10 @@ EzEx = np.mean(mux.detach().numpy(),0)
 
 EzEx/xbar
 
+# Inference model
+muz,logvarz = model.encoder(Data)
 
+ExEz = np.mean(muz.detach().numpy(),0)
 
 #################################
 # Second moment
@@ -204,8 +207,6 @@ RHS/LHS
 
 np.mean(RHS/LHS)
 
-
-
 #Inference model
 
 
@@ -217,8 +218,3 @@ for i in range(0,np.shape(npData)[0]):
     BigMatrix += V+E2
     
 SMZ = BigMatrix/(np.shape(npData)[0])
-
-
-muz,logvarz = model.encoder(sample)
-
-ExEz = np.mean(muz.detach().numpy(),0)

@@ -19,9 +19,14 @@ import pandas as pd
 
 
 ####################################
-# Defining our VAE
+# Defining VAEs
 ####################################
 
+####################################
+# PVAE: Probabilistic VAE 
+# Encoder has 1 hidden layer
+# Decoder has one hidden layer
+####################################
 class PVAE(nn.Module):
     def __init__(self, x_dim=10,h_dim=400,z_dim=20):
         super(PVAE, self).__init__()
@@ -86,6 +91,13 @@ def ptrain(args, model, device, data, optimizer, epoch):
         loss.backward()
         optimizer.step()
 
-    train_loss /= data.shape[0]         
-    print('====> Epoch: {} Average loss: {:.4f}'.format(
-          epoch, train_loss ))
+    #train_loss /= data.shape[0]         
+    #print('====> Epoch: {} Average loss: {:.4f}'.format(
+    #      epoch, train_loss ))
+    
+def ptest(args, model, device, data, epoch):
+    mux,logvarx, mu, logvar = model(data)
+    loss = -ploss_function(mux,logvarx, data, mu, logvar,args.beta,device)
+     
+    print('====> Epoch: {} Average test loss: {:.4f}'.format(
+          epoch, loss/data.shape[0] ))

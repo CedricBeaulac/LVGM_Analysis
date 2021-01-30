@@ -42,7 +42,7 @@
 \begin{document}
 
 
-\title{Moment matching in latent variable model}
+\title{Studying the gap between moment estimators to evaluate latent variable models}
 
 %\subtitle{Poste de professeure, professeur en statstique et science des données}
 
@@ -59,7 +59,12 @@
 
 \section{Intro}
 
-\section{Probability identities}
+\section{Latent variable models}
+
+
+\section{Moment estimators}
+
+\subsection{Second moment}
 
 The idea is to build two different estimators of the same value. One uses observed data and the other uses the proposed generative model. 
 
@@ -111,7 +116,7 @@ The estimates from equation \ref{lhs} should be similar to those from equation \
 
 Based on simulation we observe that the generative model tends to underestimate the second moment.
 
-\bigskip
+\subsection{First moment}
 
 Know that we can do something similar for the first moment :
 
@@ -126,9 +131,25 @@ where we can estimate the left-hand side with $\bar{x}$ and the right-hand side 
 
 The first objective is to use such strategies as diagnostic tools to evaluate the fit of latent variable model. A follow-up project is to use those as part of the optimization procedure. 
 
-\subsection{Moment matching for diagnostic}
+\section{Gap between moment estimators}
 
-For latent variable with a define forward mechanism, such as pPCA, GMM, HMM and VAE we can assess the ability of the forward model to capture the moment of the observation by comparing the DE with the FME.  
+For latent variable with a define forward mechanism, such as pPCA, GMM, HMM and VAE we can assess the ability of the forward model to capture the moment of the observation by comparing the DE with the FME. From now we refer to the object we are studying as MEGA (Moment Estimators GAp). 
+
+\subsection{Selecting a matrix norm}
+
+Finally, in order to map the MEGA to something tangible and comparable we propose using a matrix norm of the MEGA. There exist a wide range of possible candidate, let us introduce a few a justify our finale choice. 
+
+\bigskip
+
+We want to use a norm that looks at the global properties of the matrix and fortunately Rigollet \cite{rigollet15} introduces multiple norms that do so.  
+
+\subsection{Implementation of the selected norms}
+
+\section{Experiments and results}
+
+\section{Training with moment estimator matching}
+
+\section{Conclusion}
 
 \pagebreak
 \bibliographystyle{plain}

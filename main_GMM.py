@@ -4,7 +4,7 @@ Created on 22/01/21
 
 @author: Cedric Beaulac 
 
-LVM-MEGA
+LVM-MEGA : Test on gaussian mixture data
 """
 
 
@@ -69,9 +69,14 @@ pi=[0.3,0.3,0.4]
 mu=[[0,10],[-5,0],[5,2]]
 std=[[1,2],[0.5,0.5],[2,2]]
 
-sample = GMM_Gen2(n,pi,mu,std)
+data = GMM_Gen(n,pi,mu,std)
 
-plt.scatter(sample[:,0].numpy(),sample[:,1].numpy())
+plt.scatter(data[:,0].numpy(),data[:,1].numpy())
+
+ntest =500
+
+testdata = GMM_Gen(ntest,pi,mu,std)
+
 
 
 ###########################################
@@ -130,7 +135,8 @@ HDim = 10
 model =  PVAE(ObsDim,HDim,LDim).to(device)
 optimizer = optim.Adam(model.parameters())
 for epoch in range(1, 1000 + 1):
-    ptrain(args, model, device, sample, optimizer, epoch)
+    ptrain(args, model, device, data, optimizer, epoch)
+    ptest(args, model, device, testdata, epoch)
 
 
 #################################
@@ -138,10 +144,10 @@ for epoch in range(1, 1000 + 1):
 #################################
     
     
-nt = 5000
+ntz = 5000
 
 # Print new points
-NewPoint = np.random.normal(loc=np.zeros(LDim), scale=np.ones(LDim), size=(nt, LDim))
+NewPoint = np.random.normal(loc=np.zeros(LDim), scale=np.ones(LDim), size=(ntz, LDim))
 NewPoint = torch.tensor(NewPoint)
 NewPoint = NewPoint.type(torch.FloatTensor)
 
@@ -149,7 +155,7 @@ mux, logvarx = model.decode(NewPoint)
 
 varx = logvarx.exp_()
 varx = torch.diag_embed(varx[:,],0,1)
-param = torch.cat((mux.view(nt,1,2),varx),1)
+param = torch.cat((mux.view(ntz,1,2),varx),1)
 mvn = torch.distributions.multivariate_normal.MultivariateNormal(param[:,0,:],param[:,1:ObsDim+1,:])
 testsample = mvn.sample()
 
@@ -162,7 +168,7 @@ plt.scatter(testsample[:,0].numpy(),testsample[:,1].numpy())
 #################################
 
 # Generative model
-xbar = np.mean(sample.numpy(),0)
+xbar = np.mean(data.numpy(),0)
 
 EzEx = np.mean(mux.detach().numpy(),0)
 
@@ -175,7 +181,7 @@ EzEx/xbar
 #################################
 
 # Generative model
-S2 = np.cov(np.transpose(sample))
+S2 = np.cov(np.transpose(data))
 xbar2 = np.outer(xbar,np.transpose(xbar))
 
 LHS = S2+xbar2
@@ -183,11 +189,11 @@ LHS = S2+xbar2
 E2= np.zeros((ObsDim,ObsDim))
 for i in range(0,n):
     
-    E2 += np.outer(sample[i,:], sample[i,:])
+    E2 += np.outer(data[i,:], data[i,:])
     
-E2 = E2/(np.shape(sample)[0]-1)
+E2 = E2/(np.shape(data)[0]-1)
 
-#np.power(sample,2)
+#np.power(data,2)
 
 BigMatrix = np.zeros((ObsDim,ObsDim))
 for i in range(0,n):
@@ -198,11 +204,9 @@ for i in range(0,n):
     
 RHS = BigMatrix/n
 
-#LHS-RHS
+Gap = LHS-RHS
 
-RHS/LHS
-
-np.mean(RHS/LHS)
+#2MEGA = norm(Gap)
 
 
 
@@ -219,6 +223,6 @@ for i in range(0,np.shape(npData)[0]):
 SMZ = BigMatrix/(np.shape(npData)[0])
 
 
-muz,logvarz = model.encoder(sample)
+muz,logvarz = model.encoder(data)
 
 ExEz = np.mean(muz.detach().numpy(),0)
