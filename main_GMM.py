@@ -40,6 +40,7 @@ from sklearn.ensemble import VotingClassifier
 from sklearn.metrics import accuracy_score
 from sklearn.preprocessing import LabelEncoder
 from sklearn.preprocessing import OneHotEncoder
+from sklearn.mixture import GaussianMixture
 
 import os
 
@@ -56,6 +57,7 @@ import matplotlib.pyplot as plt
 
 from utility import *
 from NNutility import *
+from pyppca import *
 
 
 
@@ -125,28 +127,35 @@ kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
 
 
 ###########################################
-# Defining model and training
+# Defining models and training
 ###########################################
 
-
-LDim = 2
+#VAE
+LDim = 5
 HDim = 10
 
 model =  PVAE(ObsDim,HDim,LDim).to(device)
 optimizer = optim.Adam(model.parameters())
-for epoch in range(1, 1000 + 1):
+for epoch in range(1, 500 + 1):
     ptrain(args, model, device, data, optimizer, epoch)
     ptest(args, model, device, testdata, epoch)
+    
+    
+#GMM
+gm = GaussianMixture(n_components=3, random_state=0).fit(data)
+
+    
+
 
 
 #################################
 # Testing process (Garbage)
 #################################
     
-    
+ 
 ntz = 5000
 
-# Print new points
+#VAE 
 NewPoint = np.random.normal(loc=np.zeros(LDim), scale=np.ones(LDim), size=(ntz, LDim))
 NewPoint = torch.tensor(NewPoint)
 NewPoint = NewPoint.type(torch.FloatTensor)
@@ -157,10 +166,20 @@ varx = logvarx.exp_()
 varx = torch.diag_embed(varx[:,],0,1)
 param = torch.cat((mux.view(ntz,1,2),varx),1)
 mvn = torch.distributions.multivariate_normal.MultivariateNormal(param[:,0,:],param[:,1:ObsDim+1,:])
-testsample = mvn.sample()
+vaetestsample = mvn.sample()
 
-#plt.scatter(mux[:,0].detach().numpy(),mux[:,1].detach().numpy())
-plt.scatter(testsample[:,0].numpy(),testsample[:,1].numpy())
+plt.scatter(vaetestsample[:,0].numpy(),vaetestsample[:,1].numpy())
+
+
+#GMM
+gmmtestsample = gm.sample(ntz)
+plt.scatter(gmmtestsample[0][:,0],gmmtestsample[0][:,1])
+
+
+#pPCA
+C, ss, M, X, Ye = ppca(data,2,dia=True)
+
+
 
 
 #################################
@@ -195,6 +214,7 @@ E2 = E2/(np.shape(data)[0]-1)
 
 #np.power(data,2)
 
+#VAE
 BigMatrix = np.zeros((ObsDim,ObsDim))
 for i in range(0,n):
     
@@ -206,11 +226,28 @@ RHS = BigMatrix/n
 
 Gap = LHS-RHS
 
-#2MEGA = norm(Gap)
+
+MEGAF = frobnorm(Gap)
+
+#GMM
+BigMatrix = np.zeros((ObsDim,ObsDim))
+for i in range(0,n):
+    
+    V = gm.covariances_[gmmtestsample[1][i]]
+    E2 = np.outer(gm.means_[gmmtestsample[1][i]], gm.means_[gmmtestsample[1][i]])
+    BigMatrix += V+E2
+    
+RHS = BigMatrix/n
+
+Gap = LHS-RHS
 
 
+MEGAF = frobnorm(Gap)
 
-#Inference model
+
+#################################
+# Inference model
+#################################
 
 
 BigMatrix = np.zeros((LDim,LDim))

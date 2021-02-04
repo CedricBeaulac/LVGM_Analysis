@@ -8,7 +8,9 @@ Clean place to drop function for LVS experiments
 
 import torch
 import numpy as np
+from numpy import *
 
+import pandas as pd
 
 ##################################  
 # GMM_Gen: Gaussian Mixture Model Generator
@@ -32,7 +34,10 @@ def GMM_Gen(n,pi,mu,std):
     return sample
 
 
-
+##################################  
+# power_iteration (Von Mises iteration)
+# copied from https://en.wikipedia.org/wiki/Power_iteration
+##################################
 def power_iteration(A, num_simulations: int):
     # Ideally choose a random vector
     # To decrease the chance that our vector
@@ -52,7 +57,10 @@ def power_iteration(A, num_simulations: int):
     return b_k
 
 
-def Frobenius(A):
+##################################  
+# frobnorm : Frobenius norm of matrix A
+##################################
+def frobnorm(A):
 
     A2 = np.dot(A,A) 
     Trace = np.trace(A2)
@@ -60,3 +68,13 @@ def Frobenius(A):
 
     return Frob
 
+
+
+def ppca(x,d,dia):
+    
+    #Initialize parameters
+    
+    n,D = shape(x)
+    W = np.random.normal(0,1,[D,d])
+
+    return 
