@@ -75,7 +75,7 @@ The technique we propose is fast to compute, works for a wide range of models an
 
 In the next section we establish the family of latent variable model suited for this metric. In section 3 we discuss the moments estimators we use before building the proposed evaluation metric in section 4. After we discuss related work in section 5 we present simulations and experiments in section 6. Finally, section 7 propose a wide range of future application of the ideas presented in this article such as the possibility of training models using the proposed metric. 
 
-\section{Latent variable generative models}
+\section{Latent variable generative models}\label{lvm}
 
 The diagnostic tool we propose is useful to assess the quality of the fit for a family of unsupervised latent variable models. In this section we define this family.
 
@@ -135,6 +135,10 @@ In this situation, $f$ map the latent variable to a pair of \textit{distribution
 \subsection{Probabilistic Principal Component Analysis}
 
 \subsection{Variational AutoEncoders}
+
+\section{Related Works}
+
+We propose a metric to evaluate to goodness-of-fit of the family of latent variable define in section \ref{lvm} and based on the literature there is no good metric for such thing at the moment. 
 
 \section{Moment estimators}
 
@@ -247,7 +251,7 @@ Additional, both norms can be computed quite efficiently. To compute to Frobeniu
 
 \subsection{Implementation of the selected norms}
 
-\section{Related Works}
+
 
 \section{Experiments and results}
 

@@ -12,6 +12,11 @@ from numpy import *
 
 import pandas as pd
 
+import torch
+import torch.nn.init as init
+import torch.nn.functional as F
+import torch.nn as nn
+
 ##################################  
 # GMM_Gen: Gaussian Mixture Model Generator
 # inputs: n- number of observations, pi- probabilities of components
@@ -69,12 +74,39 @@ def frobnorm(A):
     return Frob
 
 
+##################################  
+# ppca: Training a probabilistic PCA with EM (scales better)
+##################################
+def ppca(x,m,dia,ite):
+    
 
-def ppca(x,d,dia):
+    #n,D are fixed by the problem
+    #mu being the mean is the ML estimator, we fix it first 
+    n,d = shape(x)
+    mu = np.mean(x,0)
+    xd = torch.tensor(x-mu)
+
     
-    #Initialize parameters
+    #Random Initilization of parameters in need of training
+    W = torch.tensor(np.random.normal(0,1,[d,m]))
+    sig = torch.tensor(exp(np.random.normal(0,0.1,[1])))
     
-    n,D = shape(x)
-    W = np.random.normal(0,1,[D,d])
+    #Initialize matrix M
+    M = torch.matmul(torch.transpose(W,0,1),W)+sig*torch.eye(m)
+
+    
+    for i in range(0,ite):
+        
+        #Setting stuff up
+        Minv = torch.inverse(M)
+
+        
+        #E Step
+        Ez =  torch.matmul(torch.matmul(Minv,torch.transpose(W,0,1)),torch.transpose(xd,0,1))
+        Ez = Ez.view(100,2,1)
+        Ezt = Ez.view(100,1,2)
+        Ezz = sig*Minv + torch.matmul(Ez,Ezt)
+        
+        #M Step
 
     return 
