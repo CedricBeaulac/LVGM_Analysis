@@ -59,7 +59,7 @@
 \maketitle
 
 
-\section{Intro}
+\section{Introduction} \label{intr}
 
 When fitting supervised models, statisticians and computer scientist alike have come up with tons of metrics in order to evaluate the quality of their predictions and judge their adequacy, from simple mean-squared error to more general loss functions. However, in the context of unsupervised learning there is no direct measure of success and it can be difficult to assess the validity of the fitted model \cite{Hastie09}.
 
@@ -73,11 +73,11 @@ The technique we propose is fast to compute, works for a wide range of models an
 
 \bigskip
 
-In the next section we establish the family of latent variable model suited for this metric. In section 3 we discuss the moments estimators we use before building the proposed evaluation metric in section 4. After we discuss related work in section 5 we present simulations and experiments in section 6. Finally, section 7 propose a wide range of future application of the ideas presented in this article such as the possibility of training models using the proposed metric. 
+In the next section we establish the family of latent variable model suited for this metric. After we discuss related work in section \ref{rewo}, we discuss the moments estimators used in section \ref{moes}.  In section \ref{mega}, we present our metric. We show how this metric perform with simulations in section \ref{expe}. Finally, section \ref{fuwo} propose a wide range of future application of the ideas presented in this article such as the possibility of training models using the proposed metric. 
 
-\section{Latent variable generative models}\label{lvm}
+\section{Latent variable generative models}\label{lvgm}
 
-The diagnostic tool we propose is useful to assess the quality of the fit for a family of unsupervised latent variable models. In this section we define this family.
+The diagnostic tool we propose is useful to assess the quality of the fit for a family of unsupervised latent variable models. In this section we define this family, the Latent variable generative models (LVGMs).
 
 \bigskip
 
@@ -112,35 +112,53 @@ and is quite often represented using a simple graph:
   \label{genny}
 \end{figure}%
 These models are \textit{generative models} because learning $p(\x,\z)= p(\z)p(\x|z)$ allows us to generated new samples of $\x$ using ancestral sampling. What makes this model probabilistic is that the mapping from $\z$
- to $\x$ is not a deterministic function $f: \mathcal{Z} \rightarrow \mathcal{X}$ but instead a \textit{probabilistic mapping} from $\mathcal{Z}$ to the parameter space $\Theta$, where $\Theta$ is the parameter space of $p_\theta(\x|z)$; $\theta \in \Theta$. 
+ to $\x$ is not a deterministic function $f: \mathcal{Z} \rightarrow \mathcal{X}$ but instead a \textit{probabilistic mapping} from $\mathcal{Z}$ to the parameter space $\Theta$, where $\Theta$ is the parameter space of $p_\theta(\x|z)$; $\theta \in \Theta$. We will call $p_\theta(\x|z)$ the emission distribution or observation distribution interchangeably.
  
 \bigskip
 
-When training or fitting such models we are training the function $f:\mathcal{Z} \rightarrow \Theta$ in ways to maximize the likelihood of the data set $S$ under the model of equation \ref{LVM}. This mapping $f$ explains the effect of $\z$ on $\x$ ans is at the centre of latent variable models. Learning this function $f$ is the main challenge of optimizing latent variable model and the Expectation-Maximization algorithm (EM) or variational inference are common strategies to fit learn such function.
+When training or fitting such models we are training the function $f:\mathcal{Z} \rightarrow \Theta$ in ways to maximize the likelihood of the data set $S$ under the model of equation \ref{LVM}. This mapping $f$ explains the effect of $\z$ on $\x$ ans is at the centre of latent variable models. Learning this function $f$ is the main challenge of optimizing latent variable model and the Expectation-Maximization algorithm (EM) or variational inference are common strategies to fit learn such function. In most cases, $p(\z)$ is assumed to be known and fixed but in some cases the parameters of $p(\z)$ are estimated as well.
 
 \bigskip
 
-Usually $p_\theta(\x|z)$ is a simple parametric distribution and the latent variable is in charge of increasing the complexity of $p_\theta(\x)$. Additionally, the function $f$ can take many forms, from simple linear combination to neural network functions. We will use $f(\z)$ interchangeably with $f$ but also sometimes the \textit{distribution parameters} it outputs directly. For instance, assuming $p_\theta(\x|z) = \text{Poisson}(\lambda)$ then $f: \mathcal{Z} \rightarrow \mathbb{R}^+$ and we might use $f(\z)$ and $\lambda(\z)$ interchangeably.
+Usually $p_\theta(\x|z)$ is a simple parametric distribution and the latent variable is in charge of increasing the complexity of $p_\theta(\x)$. Additionally, the function $f$ can take many forms, from simple linear combination to neural network functions. We will use $f(\z)$ interchangeably with $f$ but also sometimes the \textit{distribution parameters} it outputs directly. For the majority of emission distribution we consider, there exist a simple mapping from the parameters of the distribution to its expectation and its variance.
 
+\bigskip
+
+For instance, assuming the emission distribution is Poisson: $p_\theta(\x|z) = \text{Poisson}(\lambda)$ then $f: \mathcal{Z} \rightarrow \mathbb{R}^+$ and we might use $f(\z)$ and $\lambda(\z)$ interchangeably. Additionally, $\Ex[\x|\z] = \lambda(\z)$ and $ \Vx[\x|\z] = \lambda(\z)$. 
+
+
+\subsection{Probabilistic Principal Component Analysis}
+
+The Probabilistic Principal Component Analysis (pPCA) \cite{tipping99,Bishop07} is a member of the LVGM family we just described where $p(\z)$ is assumed to be a normal distribution $N(0,I)$. We also assume the emission distribution to be Normal: $p(\x|\z) = N(W\z+\mu,\sigma^2I)$. In this formulation, we see that $f: \mathbb{R}_M \rightarrow \mathbb{R}_D$ is a linear function that maps the latent variable $\z$ to $\Ex[\x|\z]$. Outside of estimating $W$ and $\mu$ as part of $f$ the model also estimate $\sigma^2$ though it is not a function of $z$. However it is function of $D$ and $M$, the dimension of $\mathcal{X}$ and $\mathcal{Z}$. 
+
+\bigskip
+
+The parameters of pPCA can be fit analytically as the solution of a direct maximization of the likelihood or with the EM algorithm.   
+
+\subsection{Variational AutoEncoders}
 
 \subsection{Gaussian Mixture Models}
 
-The GMM is a member of the family latent variable generative models we just described. For a GMM with $K$-components we define $\z$ as a k-class categorical variable, $\z \in \{1,...,K\} = \mathcal{Z}$, $p(\z)$ is a categorical distribution where we define $\pi_j$ as $p(\z = j)$ with $\sum_{j=1}^K \pi_j =1$. Finally, setting $p(\x|z=j) = N(\mu_j,\sigma_j)$ leads to a GMM:
+For a GMM with $K$-components we define $\z$ as a k-class categorical variable, $\z \in \{1,...,K\} = \mathcal{Z}$, $p(\z)$ is a categorical distribution where we define $\pi_j$ as $p(\z = j)$ with $\sum_{j=1}^K \pi_j =1$. Finally, setting $p(\x|z=j) = N(\mu_j,\sigma_j)$ leads to a GMM:
 \begin{align}
 p(\x) = \sum_{j=1}^K \pi_j p(\x|z=j) 
 \label{LVM}
 \end{align}
-In this situation, $f$ map the latent variable to a pair of \textit{distribution parameters}, $\mu$ and $\sigma$, $f: \{1,...,K\} \rightarrow \mathbb{R}\times\mathbb{R}^+$. Similarly
+In this situation, $f$ map the latent variable to a pair of \textit{distribution parameters}, $\mu$ and $\sigma$, $f: \{1,...,K\} \rightarrow \mathbb{R}\times\mathbb{R}^+$. In this particular cases  $\Ex[\x|\z] = f_1(\z)$ where $f_1$ is the \textit{first} output of $f(\z)$ and $\Vx[\x|\z] = f_2(\z)$.
 
-\subsection{Probabilistic Principal Component Analysis}
+\bigskip
 
-\subsection{Variational AutoEncoders}
+The GMM is a special case of LVGM where we also estimate the parameters $\{\pi_j : j \in 1,...K\}$ of $p_(\z)$. A GMM is usually train using the EM algorithm. 
 
-\section{Related Works}
+\section{Related Works} \label{rewo}
 
-We propose a metric to evaluate to goodness-of-fit of the family of latent variable define in section \ref{lvm} and based on the literature there is no good metric for such thing at the moment. 
+We propose a metric to evaluate to goodness-of-fit of the family of latent variable define in section \ref{lvgm} and based on the literature there is no good metric for such thing at the moment. 
 
-\section{Moment estimators}
+\bigskip
+
+In the literature the likelihood of the data $S$ under the fitted model is used CITE, however,it has been shown CITE that sometimes a model can reach very high-likelihood even for terrible fit. For instance, Bishop et al. \cite{Bishop07} demonstrate that for   
+
+\section{Moment estimators} \label{moes}
 
 \subsection{Second moment}
 
@@ -152,7 +170,7 @@ To do, let us introduce the well-know Law of Total Variance :
 
 
 \begin{align}
-\Vx(X) = \Ez[\Vx(X|Z)] + \Vz[\Ex(X|Z)]
+\Vx(\x) = \Ez[\Vx(\x|\z)] + \Vz[\Ex(\x|\z)]
 \end{align}
 
 and notice the second term is equal to :
@@ -180,11 +198,11 @@ We call the LHS the data estimate (DE). The right and side of equation \ref{rhsl
 
 \begin{align}
 \Ez[\Vx(X|Z) + \Ex(X|Z)^2] &= \int_z (\Vx(X|Z=z)+\Ex(X|Z=z)^2)p(z) dz \\ 
-&\approx \frac{1}{m} \sum_{i=1}^m ( \text{diag}(\text{MLP}_2(z_i)) + \text{MLP}_1(z_i)^T\text{MLP}_1(z_i))
+&\approx \frac{1}{m} \sum_{i=1}^m \left[\Vx(\x|\z=z_i) + \Ex(\x|\z=z_i)^T\Ex(\x|\z=z_i)\right]
 \label{rhs}
 \end{align}
 
-where $z_i \sim p_\theta(z)$, MLP$_1$ is the multilayer perceptron that return $\Ex(X|Z)$ and MLP$_2$ is the multilayer perceptron that return $\Vx(X|Z)$. This is the forward model estimates (FME). Notice that this estimator does not require we sample from $p_\theta(x|z)$ and uses directly the \textit{parameters} of this distribution instead. It is very fast to sample a large amount of $z's$ and additionally, because this is a rather simple Monte Carlo sample, we can compute its estimated standard error ...
+where $z_i \sim p_(\z)$, and $\Ex(\x|\z=z_i)$ and  $\Vx(\x|\z=z_i)$ are expressed as functions of $f(z_i)$. Thus this estimator relies on all the components of the fitted LVGM: $p(\z)$ and $f(\z)$. This is the forward model estimates (FME). Notice that this estimator does not require we sample from $p_\theta(x|z)$ and uses directly the estimated parameters of the emission distribution. It is very fast to sample a large amount of $z's$ and additionally, because this is a rather simple Monte Carlo sample, we can compute its estimated standard error ...
 
 \bigskip
 
@@ -196,14 +214,14 @@ We can do something similar for the first moment :
 
 \begin{align}
 \Ex[X] = \Ez[\Ex(X|Z)] 
-\label{rhs}
+\label{1stm}
 \end{align}
 
 where we can estimate the left-hand side with $\bar{x}$ and the right-hand side with $\frac{1}{m} \sum_{i=1}^m \text{MLP}_1(z_i)$ where $z_i \sim p_\theta(z)$. However, based on our previous experiment we do not believe capturing the first moment is an issue for most latent variable model. Additionally, the RHS estimate only account for a subset of the estimated parameters (it does not include the parameters of MLP$_2$) which makes the gap between those two estimators less interesting to study. However, to get a complete picture of the models proficient at estimating the observed-data distribution we include a first moment analysis as well. 
 
  
 
-\section{MEGA (Moment Estimators GAp)}
+\section{MEGA: Moment Estimators GAp} \label{mega}
 
 For latent variable with a define forward mechanism, such as pPCA, GMM, HMM and VAE we can assess the ability of the forward model to capture the moment of the observation by comparing the DE with the FME. From now we refer to the object we study, the matrix that is the difference between our two second moment estimator, as MEGA (Moment Estimators GAp) which we identify as $M$. 
 
@@ -253,13 +271,13 @@ Additional, both norms can be computed quite efficiently. To compute to Frobeniu
 
 
 
-\section{Experiments and results}
+\section{Experiments and results} \label{expe}
 
-\section{Future work}
+\section{Future work} \label{fuwo}
 \subsection{Extension to a wider class of probabilistic graphical models}
 \subsection{Training by minimizing MEGA}
 
-\section{Conclusion}
+\section{Conclusion} \label{conc}
 
 \section*{Ackowledgement}
 

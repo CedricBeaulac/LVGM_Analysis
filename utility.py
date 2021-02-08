@@ -92,12 +92,13 @@ def ppca(x,m,dia,ite):
     sig = torch.tensor(exp(np.random.normal(0,0.1,[1])))
     
     #Initialize matrix M
-    M = torch.matmul(torch.transpose(W,0,1),W)+sig*torch.eye(m)
+    #M = torch.matmul(torch.transpose(W,0,1),W)+sig*torch.eye(m)
 
-    
+    # ite iterations of the EM algorithm
     for i in range(0,ite):
         
         #Setting stuff up
+        M = torch.matmul(torch.transpose(W,0,1),W)+sig*torch.eye(m)
         Minv = torch.inverse(M)
 
         
@@ -108,5 +109,12 @@ def ppca(x,m,dia,ite):
         Ezz = sig*Minv + torch.matmul(Ez,Ezt)
         
         #M Step
-
-    return 
+        W1 = torch.sum(torch.matmul(xd.view(100,5,1),Ezt),0)
+        W2 = torch.sum(Ezz,0)
+        W = torch.matmul(W1,W2)
+        s1 = torch.sum(xd.pow(2),1).pow(0.5)
+        s2 = torch.matmul(xd.view(100,1,5),torch.matmul(W.repeat(100,1,1),Ez)).view(100)
+        s3 = torch.diagonal(torch.matmul(Ezz,torch.matmul(torch.transpose(W,0,1),W).repeat(100,1,1)), dim1=-2, dim2=-1).sum(-1)
+        sig = torch.sum(s1+s2+s3)/(n+d)
+        
+    return mu,W,sig
