@@ -57,7 +57,7 @@ import matplotlib.pyplot as plt
 
 from utility import *
 from NNutility import *
-from pyppca import *
+
 
 
 
@@ -66,10 +66,10 @@ from pyppca import *
 ####################################
 
 
-n=5000
+n=1000
 pi=[0.3,0.3,0.4]
-mu=[[0,10],[-5,0],[5,2]]
-std=[[1,2],[0.5,0.5],[2,2]]
+mu=[[0,-5],[-2,0],[4,2]]
+std=[[1,2],[2,2],[2,2]]
 
 data = GMM_Gen(n,pi,mu,std)
 
@@ -78,6 +78,27 @@ plt.scatter(data[:,0].numpy(),data[:,1].numpy())
 ntest =500
 
 testdata = GMM_Gen(ntest,pi,mu,std)
+
+
+
+####################################
+# Generate data sets
+####################################
+
+
+n=1000
+pi=[0.3,0.3,0.4]
+mu=[[0,-5,0,-10],[-2,0,5,5],[4,2,0,-10]]
+std=[[1,2,1,1],[2,2,0.5,10],[2,2,2,2]]
+
+data = GMM_Gen(n,pi,mu,std)
+
+plt.scatter(data[:,3].numpy(),data[:,1].numpy())
+
+ntest =500
+
+testdata = GMM_Gen(ntest,pi,mu,std)
+
 
 
 
@@ -136,7 +157,7 @@ HDim = 10
 
 model =  PVAE(ObsDim,HDim,LDim).to(device)
 optimizer = optim.Adam(model.parameters())
-for epoch in range(1, 500 + 1):
+for epoch in range(1, 1000 + 1):
     ptrain(args, model, device, data, optimizer, epoch)
     ptest(args, model, device, testdata, epoch)
     
@@ -144,16 +165,19 @@ for epoch in range(1, 500 + 1):
 #GMM
 gm = GaussianMixture(n_components=3, random_state=0).fit(data)
 
-    
+
+#pPCA
+ldim =2 
+mu,W,sig2 = ppca(data,ldim,5000)
 
 
-
+mu,W,sig2 = ppca_ll(data,ldim)
 #################################
-# Testing process (Garbage)
+# Generate points from fitted models
 #################################
     
  
-ntz = 5000
+ntz = 1000
 
 #VAE 
 NewPoint = np.random.normal(loc=np.zeros(LDim), scale=np.ones(LDim), size=(ntz, LDim))
@@ -164,7 +188,7 @@ mux, logvarx = model.decode(NewPoint)
 
 varx = logvarx.exp_()
 varx = torch.diag_embed(varx[:,],0,1)
-param = torch.cat((mux.view(ntz,1,2),varx),1)
+param = torch.cat((mux.view(ntz,1,ObsDim),varx),1)
 mvn = torch.distributions.multivariate_normal.MultivariateNormal(param[:,0,:],param[:,1:ObsDim+1,:])
 vaetestsample = mvn.sample()
 
@@ -177,10 +201,16 @@ plt.scatter(gmmtestsample[0][:,0],gmmtestsample[0][:,1])
 
 
 #pPCA
-C, ss, M, X, Ye = ppca(data,2,dia=True)
+NewPoints = np.random.normal(loc=np.zeros(ldim), scale=np.ones(ldim), size=(ntz, ldim))
+NewPoints = torch.tensor(NewPoints)
+NewPoints = torch.transpose(NewPoints,0,1)
+X = torch.matmul(torch.tensor(W).float(),NewPoints.float())
+means = torch.transpose(X,0,1) + mu.repeat(ntz,1)
+eps = torch.distributions.multivariate_normal.MultivariateNormal(torch.zeros(ObsDim),sig2*torch.eye(ObsDim))
+epssample = eps.sample([ntz])
+ppcasample = means+epssample
 
-
-
+plt.scatter(ppcasample[:,1].numpy(),ppcasample[:,3].numpy())
 
 #################################
 # First moment
@@ -189,9 +219,12 @@ C, ss, M, X, Ye = ppca(data,2,dia=True)
 # Generative model
 xbar = np.mean(data.numpy(),0)
 
+# VAE
 EzEx = np.mean(mux.detach().numpy(),0)
 
-EzEx/xbar
+1megaf =np.zeros(3)  
+
+EzEx-xbar
 
 
 
@@ -214,6 +247,8 @@ E2 = E2/(np.shape(data)[0]-1)
 
 #np.power(data,2)
 
+MEGAF =np.zeros(3)
+
 #VAE
 BigMatrix = np.zeros((ObsDim,ObsDim))
 for i in range(0,n):
@@ -227,7 +262,7 @@ RHS = BigMatrix/n
 Gap = LHS-RHS
 
 
-MEGAF = frobnorm(Gap)
+MEGAF[2] = frobnorm(Gap)
 
 #GMM
 BigMatrix = np.zeros((ObsDim,ObsDim))
@@ -242,9 +277,24 @@ RHS = BigMatrix/n
 Gap = LHS-RHS
 
 
-MEGAF = frobnorm(Gap)
+MEGAF[0] = frobnorm(Gap)
+
+#pPCA
+BigMatrix = np.zeros((ObsDim,ObsDim))
+for i in range(0,n):
+    
+    V = sig.pow(2).numpy()*np.eye(ObsDim)
+    E2 = np.outer(means[i].numpy(), means[i].numpy())
+    BigMatrix += V+E2
+    
+RHS = BigMatrix/n
+
+Gap = LHS-RHS
 
 
+MEGAF[1] = frobnorm(Gap)
+
+MEGAF
 #################################
 # Inference model
 #################################
@@ -263,3 +313,11 @@ SMZ = BigMatrix/(np.shape(npData)[0])
 muz,logvarz = model.encoder(data)
 
 ExEz = np.mean(muz.detach().numpy(),0)
+
+
+#################################
+# Checking how our pPCA is doing
+#################################
+
+S = np.cov(np.transpose(data))
+a,b = linalg.eigh(S)

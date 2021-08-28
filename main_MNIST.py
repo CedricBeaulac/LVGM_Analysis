@@ -7,7 +7,6 @@ Created on 30/01/21
 LVM-MEGA : Test on MNIST data 
 """
 
-
 ####################################
 # Import the good stuff (bunch of libraries)
 ####################################
@@ -40,6 +39,7 @@ from sklearn.ensemble import VotingClassifier
 from sklearn.metrics import accuracy_score
 from sklearn.preprocessing import LabelEncoder
 from sklearn.preprocessing import OneHotEncoder
+from sklearn.mixture import GaussianMixture
 
 import os
 
@@ -59,27 +59,34 @@ from NNutility import *
 
 
 
+
 ####################################
 # Generate data sets
 ####################################
 
 
-n=5000
-pi=[0.3,0.3,0.4]
-mu=[[0,10],[-5,0],[5,2]]
-std=[[1,2],[0.5,0.5],[2,2]]
+big_loader = torch.utils.data.DataLoader(
+    datasets.MNIST('../data', train=True, download=True,
+                   transform=transforms.ToTensor()),batch_size=20000)
+for batch_idx, (x,y) in enumerate(big_loader):
+    x,y =x,y
 
-sample = GMM_Gen2(n,pi,mu,std)
+test_loader = torch.utils.data.DataLoader(
+    datasets.MNIST('../data', train=False, transform=transforms.ToTensor()),
+    batch_size=500, shuffle=True, **kwargs)
+for batch_idx, (tx,ty) in enumerate(big_loader):
+    tx,ty =tx,ty
 
-plt.scatter(sample[:,0].numpy(),sample[:,1].numpy())
+data = x.view(-1,784)
 
+testdata = tx.view(-1,784)
 
 ###########################################
 # Fixing arguments
 ###########################################
 
 
-ObsDim = shape(mu)[1]
+ObsDim = shape(data)[1]
 BSize = 500
 NB = int(n/BSize)
 
@@ -120,28 +127,39 @@ kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
 
 
 ###########################################
-# Defining model and training
+# Defining models and training
 ###########################################
 
-
-LDim = 2
-HDim = 10
+#VAE
+LDim = 5
+HDim = 400
 
 model =  PVAE(ObsDim,HDim,LDim).to(device)
 optimizer = optim.Adam(model.parameters())
-for epoch in range(1, 1000 + 1):
-    ptrain(args, model, device, sample, optimizer, epoch)
-
-
-#################################
-# Testing process (Garbage)
-#################################
+for epoch in range(1, 500 + 1):
+    ptrain(args, model, device, data, optimizer, epoch)
+    ptest(args, model, device, testdata, epoch)
     
     
-nt = 5000
+#GMM
+gm = GaussianMixture(n_components=20, random_state=0).fit(data)
 
-# Print new points
-NewPoint = np.random.normal(loc=np.zeros(LDim), scale=np.ones(LDim), size=(nt, LDim))
+
+#pPCA
+ldim = 250
+mu,W,sig2 = ppca(data,ldim,5000)
+
+
+mu,W,sig2 = ppca_ll(data,ldim)
+#################################
+# Generate points from fitted models
+#################################
+    
+ 
+ntz = 1000
+
+#VAE 
+NewPoint = np.random.normal(loc=np.zeros(LDim), scale=np.ones(LDim), size=(ntz, LDim))
 NewPoint = torch.tensor(NewPoint)
 NewPoint = NewPoint.type(torch.FloatTensor)
 
@@ -149,36 +167,60 @@ mux, logvarx = model.decode(NewPoint)
 
 varx = logvarx.exp_()
 varx = torch.diag_embed(varx[:,],0,1)
-param = torch.cat((mux.view(nt,1,2),varx),1)
+param = torch.cat((mux.view(ntz,1,ObsDim),varx),1)
 mvn = torch.distributions.multivariate_normal.MultivariateNormal(param[:,0,:],param[:,1:ObsDim+1,:])
-testsample = mvn.sample()
+vaetestsample = mvn.sample()
 
-#plt.scatter(mux[:,0].detach().numpy(),mux[:,1].detach().numpy())
-plt.scatter(testsample[:,0].numpy(),testsample[:,1].numpy())
+im = vaetestsample[0:100].view(100, 1, 28, 28)
+save_image(im,'VAE' + str(epoch) + '.png', nrow=10)
 
+im = mux[0:100].view(100, 1, 28, 28)
+save_image(im,'MeansVAE' + str(epoch) + '.png', nrow=10)
+
+#GMM
+gmmtestsample = gm.sample(100)
+plt.scatter(gmmtestsample[0][:,0],gmmtestsample[0][:,1])
+
+#gmmtestsample[0][gmmtestsample[0]<0]=0
+im = torch.tensor(gmmtestsample[0][0:100]).view(100, 1, 28, 28)
+save_image(im,'gmm' + str(epoch) + '.png', nrow=10)
+
+#pPCA
+NewPoints = np.random.normal(loc=np.zeros(ldim), scale=np.ones(ldim), size=(ntz, ldim))
+NewPoints = torch.tensor(NewPoints)
+NewPoints = torch.transpose(NewPoints,0,1)
+X = torch.matmul(torch.tensor(W).float(),NewPoints.float())
+means = torch.transpose(X,0,1) + mu.repeat(ntz,1)
+eps = torch.distributions.multivariate_normal.MultivariateNormal(torch.zeros(ObsDim),sig2*torch.eye(ObsDim))
+epssample = eps.sample([ntz])
+ppcasample = means+epssample
+
+ppcasample[ppcasample<0]=0
+im = ppcasample[0:100].view(100, 1, 28, 28)
+save_image(im,'ppca' + str(epoch) + '.png', nrow=10)
 
 #################################
 # First moment
 #################################
 
 # Generative model
-xbar = np.mean(sample.numpy(),0)
+xbar = np.mean(data.numpy(),0)
 
+# VAE
 EzEx = np.mean(mux.detach().numpy(),0)
 
-EzEx/xbar
+megaf =np.zeros(3)  
 
-# Inference model
-muz,logvarz = model.encoder(Data)
+EzEx-xbar
 
-ExEz = np.mean(muz.detach().numpy(),0)
+
 
 #################################
 # Second moment
 #################################
 
 # Generative model
-S2 = np.cov(np.transpose(sample))
+S2 = np.cov(np.transpose(data))
 xbar2 = np.outer(xbar,np.transpose(xbar))
 
 LHS = S2+xbar2
@@ -186,14 +228,17 @@ LHS = S2+xbar2
 E2= np.zeros((ObsDim,ObsDim))
 for i in range(0,n):
     
-    E2 += np.outer(sample[i,:], sample[i,:])
+    E2 += np.outer(data[i,:], data[i,:])
     
-E2 = E2/(np.shape(sample)[0]-1)
+E2 = E2/(np.shape(data)[0]-1)
 
-#np.power(sample,2)
+#np.power(data,2)
 
+MEGAF =np.zeros(3)
+
+#VAE
 BigMatrix = np.zeros((ObsDim,ObsDim))
-for i in range(0,n):
+for i in range(0,ntz):
     
     V = np.diag(logvarx[i,:].detach().numpy())
     E2 = np.outer(mux[i,:].detach().numpy(), mux[i,:].detach().numpy())
@@ -201,13 +246,45 @@ for i in range(0,n):
     
 RHS = BigMatrix/n
 
-#LHS-RHS
+Gap = LHS-RHS
 
-RHS/LHS
 
-np.mean(RHS/LHS)
+MEGAF[2] = frobnorm(Gap)
 
-#Inference model
+#GMM
+BigMatrix = np.zeros((ObsDim,ObsDim))
+for i in range(0,ntz):
+    
+    V = gm.covariances_[gmmtestsample[1][i]]
+    E2 = np.outer(gm.means_[gmmtestsample[1][i]], gm.means_[gmmtestsample[1][i]])
+    BigMatrix += V+E2
+    
+RHS = BigMatrix/n
+
+Gap = LHS-RHS
+
+
+MEGAF[0] = frobnorm(Gap)
+
+#pPCA
+BigMatrix = np.zeros((ObsDim,ObsDim))
+for i in range(0,n):
+    
+    V = sig.pow(2).numpy()*np.eye(ObsDim)
+    E2 = np.outer(means[i].numpy(), means[i].numpy())
+    BigMatrix += V+E2
+    
+RHS = BigMatrix/n
+
+Gap = LHS-RHS
+
+
+MEGAF[1] = frobnorm(Gap)
+
+MEGAF
+#################################
+# Inference model
+#################################
 
 
 BigMatrix = np.zeros((LDim,LDim))
@@ -218,3 +295,16 @@ for i in range(0,np.shape(npData)[0]):
     BigMatrix += V+E2
     
 SMZ = BigMatrix/(np.shape(npData)[0])
+
+
+muz,logvarz = model.encoder(data)
+
+ExEz = np.mean(muz.detach().numpy(),0)
+
+
+#################################
+# Checking how our pPCA is doing
+#################################
+
+S = np.cov(np.transpose(data))
+a,b = linalg.eigh(S)

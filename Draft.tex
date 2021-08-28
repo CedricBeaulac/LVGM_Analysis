@@ -44,7 +44,7 @@
 \begin{document}
 
 
-\title{Assessing latent variables models by studying the moment estimator gap}
+\title{MEGA: New metrics to evaluate latent variable generative models}
 
 %\subtitle{Poste de professeure, professeur en statstique et science des données}
 
@@ -57,6 +57,23 @@
 % The correct dates will be entered by the editor
 
 \maketitle
+\begin{abstract}
+In this article we introduce a new metric built to measure how latent variable models, such as Gaussian Mixture Models or Variational AutoEncoders, capture the first and second moments of data sets. We propose to compare the data moments to a moment estimator that uses both components of latent variable models. In order to make the gap between those two estimator digestible, we propose using the Frobenius norm of this gap to measure if the latent variable model did capture the moments of the data set. We discuss our metric behaviour under various scenarios and demonstrate it on multiple data sets with various latent variable models. Finally, we discuss various extensions: we discuss how to extend this metric to sequential latent variable model such as Hidden Markov Models and State-Space models, how to extend this metric to higher moments and the possibility of training model by minimizing this metric.
+\bigskip
+
+%\noindent
+
+\textbf{Keywords} : Moment estimators, Latent Variable models, Frobenius norm, Gaussian Mixture Models, Variational Auto-Encoders
+% \PACS{PACS code1 \and PACS code2 \and more}
+% \subclass{MSC code1 \and MSC code2 \and more}
+\end{abstract}
+
+
+
+
+
+
+\pagebreak
 
 
 \section{Introduction} \label{intr}
@@ -137,6 +154,12 @@ The parameters of pPCA can be fit analytically as the solution of a direct maxim
 
 \subsection{Variational AutoEncoders}
 
+The VAE is also a member of the LVGM family. It is assumed that $\z$ is a continuous variable where $p(\z)$ is assumed to be $N(0,I)$. $p(\x|\z)$ can be any parametric distribution where $f(\z)$ outputs the parameters of this distribution. For instance, if $p(\x|\z)$ is normal then $f(\z)$ will output a mean and a variance parameter, $f: \mathcal{R}_m \rightarrow \mathcal{R}_d \times \mathcal{R}_(d,d)^+$.
+
+\bigskip
+
+One novelty of VAEs is that the function $f$ proposed is much more flexible than a linear combination; it is a neural network.  In turns, this makes the posterior distribution $p(\z|\x)$ intractable and which prevent the model from being fitted by the EM algorithm. The solution proposed is to assume a variational distribution $q(\z|\x)$ and optimize the system by maximizing the Evidence Lower BOund (ELBO), a lower bound of the observed-data log-likelihood.
+
 \subsection{Gaussian Mixture Models}
 
 For a GMM with $K$-components we define $\z$ as a k-class categorical variable, $\z \in \{1,...,K\} = \mathcal{Z}$, $p(\z)$ is a categorical distribution where we define $\pi_j$ as $p(\z = j)$ with $\sum_{j=1}^K \pi_j =1$. Finally, setting $p(\x|z=j) = N(\mu_j,\sigma_j)$ leads to a GMM:
@@ -152,7 +175,12 @@ The GMM is a special case of LVGM where we also estimate the parameters $\{\pi_j
 
 \section{Related Works} \label{rewo}
 
-We propose a metric to evaluate to goodness-of-fit of the family of latent variable define in section \ref{lvgm} and based on the literature there is no good metric for such thing at the moment. 
+We propose a metric to evaluate to goodness-of-fit of the family of latent variable define in section \ref{lvgm} and based on the literature the lack of a reliable metric to asses latent variable models is obvious. At the moment, researchers rely either on the likelihood of the data under the fitted model or the heuristic analysis of generated data point. Both techniques have their fair share of problems. 
+
+\bigskip
+
+
+\cite{Kingma13, 
 
 \bigskip
 
@@ -190,14 +218,14 @@ Now we can combine and re-organize both equations :
 We have re-organized both term in this particular way for one reason, the left hand side of equation \ref{rhslhs} is independent of the latent variables and of the choice of model while the right hand side contains information about both components of the generative model. Additionally, the left hand side is actually $\Ex[X^2]$, the second moment of $X$ and thus our work here consist of comparing two different estimator of $\Ex[X^2]$. The left hand side can be estimated using the observed data:  
 
 \begin{align}
-\Ex[X^2] = \Vx(X)+ (\Ex[X])^2 \approx \frac{\sum_{i=1}^n(X_i-\bar{X})^T(X_i-\bar{X})}{n-1} + \bar{X}^T\bar{X} = \frac{\sum_{i=1}^n X_i^TX_i}{n-1}
+\text{DE} = \Ex[X^2] = \Vx(X)+ (\Ex[X])^2 \approx \frac{\sum_{i=1}^n(X_i-\bar{X})^T(X_i-\bar{X})}{n-1} + \bar{X}^T\bar{X} = \frac{\sum_{i=1}^n X_i^TX_i}{n-1}
 \label{lhs}
 \end{align}
 
 We call the LHS the data estimate (DE). The right and side of equation \ref{rhslhs} can be estimated using every components of the proposed generative model; we estimate it via a Monte Carlo sample of the prior $p_\theta(z)$ and both $\Vx(X|Z)$ and $\Ex(X|Z)$ which completely defined $p_\theta(x|z)$ contribute to this term. 
 
 \begin{align}
-\Ez[\Vx(X|Z) + \Ex(X|Z)^2] &= \int_z (\Vx(X|Z=z)+\Ex(X|Z=z)^2)p(z) dz \\ 
+\text{FME}= \Ez[\Vx(X|Z) + \Ex(X|Z)^2] &= \int_z (\Vx(X|Z=z)+\Ex(X|Z=z)^2)p(z) dz \\ 
 &\approx \frac{1}{m} \sum_{i=1}^m \left[\Vx(\x|\z=z_i) + \Ex(\x|\z=z_i)^T\Ex(\x|\z=z_i)\right]
 \label{rhs}
 \end{align}
@@ -217,7 +245,11 @@ We can do something similar for the first moment :
 \label{1stm}
 \end{align}
 
-where we can estimate the left-hand side with $\bar{x}$ and the right-hand side with $\frac{1}{m} \sum_{i=1}^m \text{MLP}_1(z_i)$ where $z_i \sim p_\theta(z)$. However, based on our previous experiment we do not believe capturing the first moment is an issue for most latent variable model. Additionally, the RHS estimate only account for a subset of the estimated parameters (it does not include the parameters of MLP$_2$) which makes the gap between those two estimators less interesting to study. However, to get a complete picture of the models proficient at estimating the observed-data distribution we include a first moment analysis as well. 
+where we can estimate the left-hand side with $\bar{x}$ and the right-hand side with $\frac{1}{m} \sum_{i=1}^m \text{MLP}_1(z_i)$ where $z_i \sim p_\theta(z)$. However, based on our previous experiment we do not believe capturing the first moment is an issue for most latent variable model. Additionally, the RHS estimate only account for a subset of the estimated parameters (it does not include the parameters of MLP$_2$) which makes the gap between those two estimators less interesting to study. However, to get a complete picture of the models proficient at estimating the observed-data distribution we include a first moment analysis as well.
+
+\subsection{Additional justification} 
+
+\subsection{More moments}
 
  
 
@@ -264,14 +296,28 @@ In random matrix theory and in matrix estimation these two norms appear frequent
 
 \bigskip
 
-Additional, both norms can be computed quite efficiently. To compute to Frobenius norm, we need square of the MEGA , $m^2$ operations, and then sum its diagonal which results in $m^2+m$ operations. The largest eigenvalue of a matrix can be estimated with the von Mises iteration \cite{mises29}, where each of the $p$ iterations will require $m^2$ operations resulting in $pm^2$ operations in total.
+
+Finally, the metrics we propose to evaluate the quality of the fit for the second moment is:
 
 
-\subsection{Implementation of the selected norms}
+\begin{align}
+\text{MEGA-F} &= |\text{DE-FME}|_F. \\
+\text{MEGA-Op} &= |\text{DE-FME}|_{op}. \\
+\label{MEGAs}
+\end{align}
 
 
+\subsection{Implementation of the selected norm}
 
-\section{Experiments and results} \label{expe}
+Implementing the Frobenius norm is quite straight forward. To compute to Frobenius norm, we need square of the MEGA , $m^2$ operations, and then sum its diagonal which results in $m^2+m$ operations. 
+
+\bigskip
+
+The largest eigenvalue of a matrix can be estimated with the von Mises iteration \cite{mises29}, where each of the $p$ iterations will require $m^2$ operations resulting in $pm^2$ operations in total.
+
+\section{Experiments: Assessing VAE's ability to capture second order properties} \label{expe}
+
+
 
 \section{Future work} \label{fuwo}
 \subsection{Extension to a wider class of probabilistic graphical models}

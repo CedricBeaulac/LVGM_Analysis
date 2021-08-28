@@ -74,47 +74,84 @@ def frobnorm(A):
     return Frob
 
 
+
+def frobvect(a):
+
+
+    frob = sqrt(np.sum(np.power(a,2)))
+
+    return Frob
+
+
+
 ##################################  
 # ppca: Training a probabilistic PCA with EM (scales better)
 ##################################
-def ppca(x,m,dia,ite):
+def ppca(x,m,ite):
     
 
     #n,D are fixed by the problem
     #mu being the mean is the ML estimator, we fix it first 
     n,d = shape(x)
-    mu = np.mean(x,0)
-    xd = torch.tensor(x-mu)
+    mu = torch.mean(x,0).float()
+    xd = torch.tensor(x-mu).float()
 
     
     #Random Initilization of parameters in need of training
-    W = torch.tensor(np.random.normal(0,1,[d,m]))
-    sig = torch.tensor(exp(np.random.normal(0,0.1,[1])))
+    W = torch.tensor(np.random.normal(0,0.1,[d,m])).float()
+    sig = torch.tensor(exp(np.random.normal(0,0.1,[1]))).float()
     
-    #Initialize matrix M
-    #M = torch.matmul(torch.transpose(W,0,1),W)+sig*torch.eye(m)
+
 
     # ite iterations of the EM algorithm
     for i in range(0,ite):
         
         #Setting stuff up
-        M = torch.matmul(torch.transpose(W,0,1),W)+sig*torch.eye(m)
-        Minv = torch.inverse(M)
+        M = torch.matmul(torch.transpose(W,0,1),W)+sig*torch.eye(m).float()
+        Minv = torch.inverse(M).float()
 
         
         #E Step
-        Ez =  torch.matmul(torch.matmul(Minv,torch.transpose(W,0,1)),torch.transpose(xd,0,1))
-        Ez = Ez.view(100,2,1)
-        Ezt = Ez.view(100,1,2)
+        Ez =  torch.matmul(torch.matmul(Minv,torch.transpose(W,0,1)).double(),torch.transpose(xd,0,1).double()).float()
+        Ez = Ez.view(n,m,1)
+        Ezt = Ez.view(n,1,m)
         Ezz = sig*Minv + torch.matmul(Ez,Ezt)
         
         #M Step
-        W1 = torch.sum(torch.matmul(xd.view(100,5,1),Ezt),0)
+        W1 = torch.sum(torch.matmul(xd.view(n,d,1),Ezt),0)
         W2 = torch.sum(Ezz,0)
-        W = torch.matmul(W1,W2)
+        W = torch.matmul(W1.float(),W2.float())
         s1 = torch.sum(xd.pow(2),1).pow(0.5)
-        s2 = torch.matmul(xd.view(100,1,5),torch.matmul(W.repeat(100,1,1),Ez)).view(100)
-        s3 = torch.diagonal(torch.matmul(Ezz,torch.matmul(torch.transpose(W,0,1),W).repeat(100,1,1)), dim1=-2, dim2=-1).sum(-1)
-        sig = torch.sum(s1+s2+s3)/(n+d)
+        s2 = torch.matmul(xd.view(n,1,d),torch.matmul(W.repeat(n,1,1),Ez)).view(n)
+        s3 = torch.diagonal(torch.matmul(Ezz.float(),torch.matmul(torch.transpose(W,0,1),W).repeat(n,1,1)), dim1=-2, dim2=-1).sum(-1)
+        sig2 = torch.sum(s1-(2*s2)+s3)/(n*d)
         
-    return mu,W,sig
+    return mu,W,sig2
+
+
+##################################  
+# ppca: LL
+##################################
+def ppca_ll(x,m):
+    
+
+    #n,D are fixed by the problem
+    #mu being the mean is the ML estimator, we fix it first 
+    n,d = shape(x)
+    mu = torch.mean(x,0)
+    xd = torch.tensor(x-mu)
+
+    
+    #Random Initilization of parameters in need of training
+    S = np.cov(np.transpose(x.numpy()))
+    a,b = linalg.eigh(S)
+    
+    sig2 = (1/(d-m))*np.sum(a[0:(d-m)])
+    
+    U = np.transpose(b[(d-m):])
+
+    midle =sqrt(np.matmul(a[-m:],np.eye(m))-sig2*np.eye(m))
+
+    W =np.matmul(np.matmul(U,midle),np.eye(m))    
+    
+    return mu,W,sig2
